@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>where teacher - 先生の場所さがしアプリ</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts (Rounded MPLUS 1c) -->
+    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;600;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        pastel: {
+                            pink: '#FFD1DC',
+                            pinkDark: '#FF85A2',
+                            yellow: '#FFF5BA',
+                            blue: '#B5E2FA',
+                            purple: '#E2C2FF',
+                            mint: '#C1E7E3',
+                            bg: '#FFFBF7',
+                            text: '#4A403A'
+                        }
+                    },
+                    fontFamily: {
+                        rounded: ['"M PLUS Rounded 1c"', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'M PLUS Rounded 1c', sans-serif;
+            background-color: #FFFBF7;
+            color: #4A403A;
+        }
+        .soft-shadow {
+            box-shadow: 0 8px 20px rgba(255, 133, 162, 0.15);
+        }
+        .soft-card {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(8px);
+            border: 2px solid #FFF0F4;
+        }
+        .pulse-pink {
+            animation: pulse-pink 2s infinite;
+        }
+        @keyframes pulse-pink {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 133, 162, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(255, 133, 162, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 133, 162, 0); }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between pb-16 md:pb-0">
+
+    <!-- Header -->
+    <header class="bg-white/80 backdrop-blur-md border-b-4 border-pastel-pink sticky top-0 z-50 px-4 py-3 shadow-sm">
+        <div class="max-w-4xl mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <div class="w-10 h-10 rounded-2xl bg-pastel-pinkDark flex items-center justify-center text-white text-xl font-extrabold shadow-md transform -rotate-3">
+                    <i class="fa-solid fa-location-dot"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl md:text-2xl font-extrabold text-pastel-pinkDark tracking-wide">where teacher</h1>
+                    <p class="text-xs text-gray-400 font-semibold">校内Wi-Fi 端末位置検知ナビ 🐾</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <!-- Mode Switcher Toggle -->
+                <div class="bg-pastel-pink/20 p-1 rounded-2xl flex items-center border border-pastel-pink/40 shadow-inner">
+                    <button id="mode-student" onclick="switchUserMode('student')" class="px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all duration-200 bg-white text-pastel-pinkDark shadow-sm flex items-center gap-1">
+                        <i class="fa-solid fa-graduation-cap"></i> 生徒
+                    </button>
+                    <button id="mode-teacher" onclick="switchUserMode('teacher')" class="px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all duration-200 text-gray-500 hover:text-pastel-pinkDark flex items-center gap-1">
+                        <i class="fa-solid fa-chalkboard-teacher"></i> 先生
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-4xl mx-auto w-full p-4 flex-1">
+
+        <!-- TEACHER MODE PANEL (Visible only when in Teacher Mode) -->
+        <section id="sec-teacher-panel" class="mb-6 space-y-4 hidden animate-fade-in">
+            <div class="bg-gradient-to-r from-amber-50 via-rose-50 to-orange-50 p-5 rounded-3xl border-2 border-dashed border-pastel-pinkDark/40 soft-shadow">
+                <div class="flex items-center justify-between pb-3 border-b border-rose-200/60 mb-4">
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-xl bg-pastel-pinkDark text-white flex items-center justify-center font-black">
+                            <i class="fa-solid fa-sliders"></i>
+                        </div>
+                        <div>
+                            <h2 class="font-extrabold text-base text-gray-800">先生用 設定・ステータス変更パネル</h2>
+                            <p class="text-xs text-gray-500">ログイン中: <span id="teacher-self-name" class="font-bold text-pastel-pinkDark">山田 太郎 先生</span> (端末: iPad Pro)</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 bg-white px-3 py-1.5 rounded-2xl border border-rose-100 shadow-sm">
+                        <span class="text-xs font-bold text-gray-600"><i class="fa-solid fa-wifi text-emerald-500"></i> 校内Wi-Fi: AP-204</span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- Location Broadcast Toggle -->
+                    <div class="bg-white p-3.5 rounded-2xl border border-rose-100 flex flex-col justify-between shadow-sm">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-extrabold text-gray-700 flex items-center gap-1">
+                                <i class="fa-solid fa-location-crosshairs text-pastel-pinkDark"></i> 端末位置の公開
+                            </span>
+                            <span id="loc-status-badge" class="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold">ON (公開中)</span>
+                        </div>
+                        <p class="text-[11px] text-gray-400 mb-3">校内Wi-Fi経由で端末の現在位置を表示します。</p>
+                        <button id="btn-toggle-loc" onclick="toggleLocationBroadcasting()" class="w-full py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5">
+                            <i class="fa-solid fa-toggle-on text-base"></i> 位置共有: ON
+                        </button>
+                    </div>
+
+                    <!-- Next Destination Selector -->
+                    <div class="bg-white p-3.5 rounded-2xl border border-rose-100 flex flex-col justify-between shadow-sm">
+                        <span class="text-xs font-extrabold text-gray-700 mb-1 flex items-center gap-1">
+                            <i class="fa-solid fa-person-walking-arrow-right text-purple-500"></i> 次どこ行くよー（予定）
+                        </span>
+                        <select id="select-next-destination" onchange="updateTeacherDestination()" class="w-full bg-pastel-bg border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-700 focus:outline-none focus:border-pastel-pinkDark mb-2">
+                            <option value="14:00〜 2-A 講義">14:00〜 2-A 講義</option>
+                            <option value="放課後〜 職員室にて相談対応">放課後〜 職員室にて相談対応</option>
+                            <option value="15:30〜 体育館・部活動">15:30〜 体育館・部活動</option>
+                            <option value="16:00〜 進路指導室">16:00〜 進路指導室</option>
+                            <option value="退勤・校外">退勤・校外</option>
+                        </select>
+                        <p class="text-[10px] text-gray-400">生徒の画面に次の移動先として更新されます。</p>
+                    </div>
+
+                    <!-- Quick Message / Note -->
+                    <div class="bg-white p-3.5 rounded-2xl border border-rose-100 flex flex-col justify-between shadow-sm">
+                        <span class="text-xs font-extrabold text-gray-700 mb-1 flex items-center gap-1">
+                            <i class="fa-solid fa-comment-dots text-amber-500"></i> 一言メッセージ・状況
+                        </span>
+                        <div class="flex gap-1.5">
+                            <input type="text" id="input-teacher-note" placeholder="例: ノート提出受付中！" value="ノート提出の質問受付中！" class="flex-1 bg-pastel-bg border border-gray-200 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-pastel-pinkDark">
+                            <button onclick="updateTeacherNote()" class="bg-pastel-pinkDark text-white px-3 py-1.5 rounded-xl font-bold text-xs hover:bg-rose-400 transition">
+                                更新
+                            </button>
+                        </div>
+                        <div class="mt-2 flex gap-1 overflow-x-auto pb-1">
+                            <button onclick="setQuickNote('在席中・いつでもどうぞ！')" class="text-[10px] bg-pastel-pink/20 text-pastel-pinkDark px-2 py-0.5 rounded-md font-bold whitespace-nowrap">在席中</button>
+                            <button onclick="setQuickNote('授業中につき離席不可')" class="text-[10px] bg-pastel-pink/20 text-pastel-pinkDark px-2 py-0.5 rounded-md font-bold whitespace-nowrap">授業中</button>
+                            <button onclick="setQuickNote('提出物ボックスに提出OK')" class="text-[10px] bg-pastel-pink/20 text-pastel-pinkDark px-2 py-0.5 rounded-md font-bold whitespace-nowrap">提出OK</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Navigation Tabs -->
+        <div class="flex bg-pastel-pink/30 p-1.5 rounded-2xl mb-6 shadow-inner">
+            <button id="tab-map" onclick="switchTab('map')" class="flex-1 py-2.5 rounded-xl font-bold text-sm md:text-base transition-all duration-200 bg-white text-pastel-pinkDark shadow-sm flex items-center justify-center gap-2">
+                <i class="fa-solid fa-map-marked-alt"></i> 校内マップ
+            </button>
+            <button id="tab-teachers" onclick="switchTab('teachers')" class="flex-1 py-2.5 rounded-xl font-bold text-sm md:text-base transition-all duration-200 text-gray-500 hover:text-pastel-pinkDark flex items-center justify-center gap-2">
+                <i class="fa-solid fa-user-ninja"></i> 先生一覧
+            </button>
+            <button id="tab-chat" onclick="switchTab('chat')" class="flex-1 py-2.5 rounded-xl font-bold text-sm md:text-base transition-all duration-200 text-gray-500 hover:text-pastel-pinkDark flex items-center justify-center gap-2 relative">
+                <i class="fa-solid fa-paper-plane"></i> 連絡・報告
+                <span id="chat-badge" class="absolute -top-1 -right-1 bg-pastel-pinkDark text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-bold">1</span>
+            </button>
+        </div>
+
+        <!-- TAB 1: 校内マップ -->
+        <section id="sec-map" class="space-y-4">
+
+            <!-- Privacy Info Banner -->
+            <div class="bg-gradient-to-r from-pastel-purple/30 to-pastel-blue/30 p-3.5 rounded-2xl border border-purple-100 flex items-center gap-3 text-xs md:text-sm">
+                <div class="text-purple-500 text-2xl pl-1"><i class="fa-solid fa-shield-cat"></i></div>
+                <div class="flex-1">
+                    <span class="font-bold text-purple-700">安心・プライバシー保護機能：</span>
+                    先生が校内Wi-Fi（校内）に接続している時だけ端末の位置情報を表示します。面倒な操作や精神的負担はありません！
+                </div>
+            </div>
+
+            <!-- Floor Selector & Map View -->
+            <div class="bg-white rounded-3xl p-4 md:p-6 soft-card soft-shadow">
+                
+                <!-- Floor selector -->
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="font-extrabold text-lg text-gray-700 flex items-center gap-2">
+                        <i class="fa-solid fa-building text-pastel-pinkDark"></i> 
+                        <span id="floor-title">本館 2階</span> リアルタイム探知
+                    </h2>
+                    <div class="flex gap-1 bg-gray-100 p-1 rounded-xl">
+                        <button onclick="changeFloor(1)" id="btn-f1" class="px-3 py-1 text-xs font-bold rounded-lg text-gray-500 transition">1F</button>
+                        <button onclick="changeFloor(2)" id="btn-f2" class="px-3 py-1 text-xs font-bold rounded-lg bg-pastel-pinkDark text-white shadow-sm transition">2F</button>
+                        <button onclick="changeFloor(3)" id="btn-f3" class="px-3 py-1 text-xs font-bold rounded-lg text-gray-500 transition">3F</button>
+                    </div>
+                </div>
+
+                <!-- Interactive Map Area -->
+                <div class="relative w-full aspect-[4/3] md:aspect-[16/9] bg-pastel-bg rounded-2xl border-2 border-dashed border-pastel-pink/60 p-3 overflow-hidden" id="map-container">
+                    
+                    <!-- Floor grid layout simulation -->
+                    <div class="grid grid-cols-3 grid-rows-3 gap-2 h-full w-full">
+                        <div class="bg-amber-50/70 rounded-xl border border-amber-200/60 p-2 text-xs font-bold text-amber-800 flex flex-col justify-between relative">
+                            <span>職員室 (メイン)</span>
+                            <i class="fa-solid fa-chair text-amber-200 text-3xl absolute right-2 bottom-2"></i>
+                            <div id="room-staff" class="flex flex-wrap gap-1 mt-1"></div>
+                        </div>
+                        <div class="bg-blue-50/70 rounded-xl border border-blue-200/60 p-2 text-xs font-bold text-blue-800 flex flex-col justify-between relative">
+                            <span>2-A 教室</span>
+                            <i class="fa-solid fa-chalkboard-user text-blue-200 text-3xl absolute right-2 bottom-2"></i>
+                            <div id="room-2a" class="flex flex-wrap gap-1 mt-1"></div>
+                        </div>
+                        <div class="bg-blue-50/70 rounded-xl border border-blue-200/60 p-2 text-xs font-bold text-blue-800 flex flex-col justify-between relative">
+                            <span>2-B 教室</span>
+                            <i class="fa-solid fa-chalkboard-user text-blue-200 text-3xl absolute right-2 bottom-2"></i>
+                            <div id="room-2b" class="flex flex-wrap gap-1 mt-1"></div>
+                        </div>
+                        <div class="bg-emerald-50/70 rounded-xl border border-emerald-200/60 p-2 text-xs font-bold text-emerald-800 flex flex-col justify-between relative">
+                            <span>理科室・実験室</span>
+                            <i class="fa-solid fa-flask text-emerald-200 text-3xl absolute right-2 bottom-2"></i>
+                            <div id="room-lab" class="flex flex-wrap gap-1 mt-1"></div>
+                        </div>
+                        <div class="bg-gray-100/50 rounded-xl border border-gray-200 p-2 text-xs font-bold text-gray-400 flex items-center justify-center">
+                            中央廊下 / 階段
+                        </div>
+                        <div class="bg-purple-50/70 rounded-xl border border-purple-200/60 p-2 text-xs font-bold text-purple-800 flex flex-col justify-between relative">
+                            <span>進路指導室</span>
+                            <i class="fa-solid fa-user-graduate text-purple-200 text-3xl absolute right-2 bottom-2"></i>
+                            <div id="room-career" class="flex flex-wrap gap-1 mt-1"></div>
+                        </div>
+                        <div class="bg-rose-50/70 rounded-xl border border-rose-200/60 p-2 text-xs font-bold text-rose-800 flex flex-col justify-between relative">
+                            <span>保健室</span>
+                            <i class="fa-solid fa-heart-pulse text-rose-200 text-3xl absolute right-2 bottom-2"></i>
+                            <div id="room-nurse" class="flex flex-wrap gap-1 mt-1"></div>
+                        </div>
+                        <div class="bg-orange-50/70 rounded-xl border border-orange-200/60 p-2 text-xs font-bold text-orange-800 flex flex-col justify-between relative">
+                            <span>準備室</span>
+                            <i class="fa-solid fa-boxes-packing text-orange-200 text-3xl absolute right-2 bottom-2"></i>
+                            <div id="room-prep" class="flex flex-wrap gap-1 mt-1"></div>
+                        </div>
+                        <div class="bg-sky-50/70 rounded-xl border border-sky-200/60 p-2 text-xs font-bold text-sky-800 flex flex-col justify-between relative">
+                            <span>コモンホール</span>
+                            <i class="fa-solid fa-mug-hot text-sky-200 text-3xl absolute right-2 bottom-2"></i>
+                            <div id="room-hall" class="flex flex-wrap gap-1 mt-1"></div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="mt-4 flex flex-wrap items-center justify-between text-xs text-gray-500 gap-2">
+                    <div class="flex items-center gap-3">
+                        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-pastel-pinkDark inline-block"></span> 校内接続中</span>
+                        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-gray-300 inline-block"></span> 圏外・未接続</span>
+                    </div>
+                    <div>※端末Wi-Fi基地局AP-204（電波強度: 強）</div>
+                </div>
+
+            </div>
+
+            <!-- Quick Status Cards -->
+            <div class="space-y-2">
+                <h3 class="font-bold text-gray-700 text-sm flex items-center gap-1">
+                    <i class="fa-solid fa-wifi text-pastel-pinkDark"></i> リアルタイム端末位置ピックアップ
+                </h3>
+                <div id="ai-quick-cards" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <!-- Dynamic list -->
+                </div>
+            </div>
+
+        </section>
+
+        <!-- TAB 2: 先生一覧 -->
+        <section id="sec-teachers" class="space-y-4 hidden">
+            
+            <!-- Search Bar -->
+            <div class="relative">
+                <i class="fa-solid fa-search absolute left-4 top-3.5 text-pastel-pinkDark"></i>
+                <input type="text" id="teacher-search" oninput="renderTeachers()" placeholder="先生の名前や教科で検索..." class="w-full bg-white pl-11 pr-4 py-3 rounded-2xl border-2 border-pastel-pink/40 focus:outline-none focus:border-pastel-pinkDark text-sm soft-shadow">
+            </div>
+
+            <!-- Teacher Cards List -->
+            <div id="teacher-list" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <!-- Dynamically populated -->
+            </div>
+
+        </section>
+
+        <!-- TAB 3: 連絡・報告チャット -->
+        <section id="sec-chat" class="space-y-4 hidden">
+
+            <!-- リアルタイム共有メモ機能 -->
+            <div class="bg-white rounded-3xl p-5 soft-card soft-shadow mb-4">
+                <h3 class="font-extrabold text-gray-800 text-sm mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-clipboard-list text-pastel-pinkDark text-lg"></i>
+                    校内リアルタイム共有メモ・伝言板
+                </h3>
+                <div class="flex gap-2 mb-4">
+                    <input type="text" id="memoInput" placeholder="全員へ共有したいメモを入力..." class="flex-1 bg-pastel-bg border border-gray-200 rounded-xl px-4 py-2 text-xs focus:outline-none focus:border-pastel-pinkDark">
+                    <button id="addBtn" class="bg-pastel-pinkDark hover:bg-rose-400 text-white font-bold px-4 py-2 rounded-xl text-xs transition shadow-sm flex items-center gap-1">
+                        <i class="fa-solid fa-plus"></i> 追加
+                    </button>
+                </div>
+                <ul id="memoList" class="space-y-2 max-h-48 overflow-y-auto">
+                    <!-- Firebaseからリアルタイム取得されるメモがここに描画されます -->
+                    <li class="text-xs text-gray-400 text-center py-2">読み込み中...</li>
+                </ul>
+            </div>
+
+            <div class="bg-white rounded-3xl p-4 soft-card soft-shadow flex flex-col h-[500px]">
+                
+                <!-- Chat target selector -->
+                <div class="border-b pb-3 mb-3 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <img id="chat-avatar" src="https://api.dicebear.com/7.x/bottts/svg?seed=Yamada" class="w-10 h-10 rounded-full bg-pastel-yellow border-2 border-white shadow-sm">
+                        <div>
+                            <select id="chat-teacher-select" onchange="changeChatTarget()" class="font-extrabold text-gray-800 bg-transparent focus:outline-none">
+                                <option value="1">山田太郎 先生 (数学)</option>
+                                <option value="2">佐藤花子 先生 (英語)</option>
+                                <option value="3">鈴木一郎 先生 (理科)</option>
+                            </select>
+                            <p class="text-xs text-emerald-600 font-semibold" id="chat-teacher-status">● 職員室にいます（Wi-Fi接続中）</p>
+                        </div>
+                    </div>
+                    <span class="text-xs bg-pastel-pink/40 text-pastel-pinkDark px-2.5 py-1 rounded-full font-bold">提出・質問</span>
+                </div>
+
+                <!-- Chat Messages Area -->
+                <div id="chat-messages" class="flex-1 overflow-y-auto space-y-3 p-2 text-sm">
+                    <!-- Default message -->
+                    <div class="flex gap-2 items-start">
+                        <img src="https://api.dicebear.com/7.x/bottts/svg?seed=Yamada" class="w-7 h-7 rounded-full bg-pastel-yellow">
+                        <div class="bg-gray-100 p-3 rounded-2xl rounded-tl-none max-w-[80%] text-gray-700">
+                            こんにちは！何か質問や提出物の事前連絡かな？
+                            <span class="block text-[10px] text-gray-400 mt-1">11:30</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chat Input Form -->
+                <form onsubmit="sendMessage(event)" class="mt-3 flex gap-2 border-t pt-3">
+                    <input type="text" id="chat-input" placeholder="質問や提出物の連絡を入力してね..." class="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-pastel-pinkDark">
+                    <button type="submit" class="bg-pastel-pinkDark text-white px-5 py-2.5 rounded-xl font-bold hover:bg-rose-400 transition shadow-md flex items-center gap-1">
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
+                </form>
+
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- Detail Modal -->
+    <div id="modal-detail" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl p-6 max-w-sm w-full soft-shadow relative animate-bounce-in">
+            <button onclick="closeModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <div class="text-center space-y-3" id="modal-content">
+                <!-- Dynamically filled -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Sample Data: Teachers
+        const teachersData = [
+            {
+                id: 1,
+                name: "山田 太郎",
+                subject: "数学",
+                avatar: "https://api.dicebear.com/7.x/bottts/svg?seed=Yamada",
+                floor: 2,
+                room: "職員室",
+                roomKey: "room-staff",
+                device: "iPad Pro (校内タブレット)",
+                status: "在席中",
+                statusColor: "bg-emerald-500",
+                note: "ノート提出の質問受付中！",
+                updatedAt: "たった今",
+                schedule: "14:00〜 2-A講義",
+                locationActive: true
+            },
+            {
+                id: 2,
+                name: "佐藤 花子",
+                subject: "英語",
+                avatar: "https://api.dicebear.com/7.x/bottts/svg?seed=Hanako",
+                floor: 2,
+                room: "2-A 教室",
+                roomKey: "room-2a",
+                device: "iPhone 13 (個人スマホ)",
+                status: "授業中",
+                statusColor: "bg-amber-500",
+                note: "英語スピーキングテスト中",
+                updatedAt: "3分前",
+                schedule: "12:30〜 昼休憩",
+                locationActive: true
+            },
+            {
+                id: 3,
+                name: "鈴木 一郎",
+                subject: "理科",
+                avatar: "https://api.dicebear.com/7.x/bottts/svg?seed=Ichiro",
+                floor: 2,
+                room: "理科室",
+                roomKey: "room-lab",
+                device: "Surface Pro (校内PC)",
+                status: "実験準備中",
+                statusColor: "bg-emerald-500",
+                note: "5時限目の実験セット中",
+                updatedAt: "たった今",
+                schedule: "放課後〜 科学部",
+                locationActive: true
+            },
+            {
+                id: 4,
+                name: "高橋 健太",
+                subject: "体育",
+                avatar: "https://api.dicebear.com/7.x/bottts/svg?seed=Kenta",
+                floor: 1,
+                room: "体育館 / 体育教官室",
+                roomKey: "room-gym",
+                device: "iPad Air (体育用)",
+                status: "移動中",
+                statusColor: "bg-gray-400",
+                note: "グラウンド整理中",
+                updatedAt: "10分前",
+                schedule: "15:30〜 部活動",
+                locationActive: false
+            },
+            {
+                id: 5,
+                name: "伊藤 恵",
+                subject: "養護",
+                avatar: "https://api.dicebear.com/7.x/bottts/svg?seed=Megumi",
+                floor: 2,
+                room: "保健室",
+                roomKey: "room-nurse",
+                device: "iPad (保健室用)",
+                status: "在室",
+                statusColor: "bg-emerald-500",
+                note: "いつでも相談どうぞ",
+                updatedAt: "たった今",
+                schedule: "終日 保健室",
+                locationActive: true
+            }
+        ];
+
+        let currentFloor = 2;
+        let currentTab = 'map';
+        let userMode = 'student'; // 'student' or 'teacher'
+
+        // Initialize App
+        window.onload = function() {
+            renderMap();
+            renderQuickCards();
+            renderTeachers();
+        };
+
+        // User Mode Switching Logic
+        function switchUserMode(mode) {
+            userMode = mode;
+            const btnStudent = document.getElementById('mode-student');
+            const btnTeacher = document.getElementById('mode-teacher');
+            const panelTeacher = document.getElementById('sec-teacher-panel');
+
+            if (mode === 'teacher') {
+                btnTeacher.className = "px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all duration-200 bg-pastel-pinkDark text-white shadow-sm flex items-center gap-1";
+                btnStudent.className = "px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all duration-200 text-gray-500 hover:text-pastel-pinkDark flex items-center gap-1";
+                panelTeacher.classList.remove('hidden');
+            } else {
+                btnStudent.className = "px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all duration-200 bg-white text-pastel-pinkDark shadow-sm flex items-center gap-1";
+                btnTeacher.className = "px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all duration-200 text-gray-500 hover:text-pastel-pinkDark flex items-center gap-1";
+                panelTeacher.classList.add('hidden');
+            }
+        }
+
+        // Teacher Controls: Toggle Location Broadcasting
+        function toggleLocationBroadcasting() {
+            const myData = teachersData.find(t => t.id === 1); // 山田先生
+            if (!myData) return;
+
+            myData.locationActive = !myData.locationActive;
+            myData.updatedAt = "たった今";
+
+            const btn = document.getElementById('btn-toggle-loc');
+            const badge = document.getElementById('loc-status-badge');
+
+            if (myData.locationActive) {
+                btn.className = "w-full py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5";
+                btn.innerHTML = `<i class="fa-solid fa-toggle-on text-base"></i> 位置共有: ON`;
+                badge.className = "text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold";
+                badge.innerText = "ON (公開中)";
+            } else {
+                btn.className = "w-full py-2 bg-gray-400 hover:bg-gray-500 text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5";
+                btn.innerHTML = `<i class="fa-solid fa-toggle-off text-base"></i> 位置共有: OFF`;
+                badge.className = "text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-bold";
+                badge.innerText = "OFF (非公開)";
+            }
+
+            renderMap();
+            renderQuickCards();
+            renderTeachers();
+        }
+
+        // Teacher Controls: Update Next Destination
+        function updateTeacherDestination() {
+            const val = document.getElementById('select-next-destination').value;
+            const myData = teachersData.find(t => t.id === 1);
+            if (myData) {
+                myData.schedule = val;
+                myData.updatedAt = "たった今";
+                renderTeachers();
+                renderQuickCards();
+            }
+        }
+
+        // Teacher Controls: Update Note
+        function updateTeacherNote() {
+            const input = document.getElementById('input-teacher-note');
+            const val = input.value.trim();
+            if (!val) return;
+
+            const myData = teachersData.find(t => t.id === 1);
+            if (myData) {
+                myData.note = val;
+                myData.updatedAt = "たった今";
+                renderTeachers();
+                renderQuickCards();
+            }
+        }
+
+        function setQuickNote(text) {
+            document.getElementById('input-teacher-note').value = text;
+            updateTeacherNote();
+        }
+
+        // Tab Switching Logic
+        function switchTab(tab) {
+            currentTab = tab;
+            
+            ['map', 'teachers', 'chat'].forEach(t => {
+                const btn = document.getElementById(`tab-${t}`);
+                const sec = document.getElementById(`sec-${t}`);
+                if (t === tab) {
+                    btn.className = "flex-1 py-2.5 rounded-xl font-bold text-sm md:text-base transition-all duration-200 bg-white text-pastel-pinkDark shadow-sm flex items-center justify-center gap-2";
+                    sec.classList.remove('hidden');
+                } else {
+                    btn.className = "flex-1 py-2.5 rounded-xl font-bold text-sm md:text-base transition-all duration-200 text-gray-500 hover:text-pastel-pinkDark flex items-center justify-center gap-2";
+                    sec.classList.add('hidden');
+                }
+            });
+        }
+
+        // Floor Switch Logic
+        function changeFloor(floor) {
+            currentFloor = floor;
+            document.getElementById('floor-title').innerText = `本館 ${floor}階`;
+
+            [1, 2, 3].forEach(f => {
+                const btn = document.getElementById(`btn-f${f}`);
+                if (f === floor) {
+                    btn.className = "px-3 py-1 text-xs font-bold rounded-lg bg-pastel-pinkDark text-white shadow-sm transition";
+                } else {
+                    btn.className = "px-3 py-1 text-xs font-bold rounded-lg text-gray-500 transition";
+                }
+            });
+
+            renderMap();
+        }
+
+        // Render Teachers on Map
+        function renderMap() {
+            // Clear current rooms
+            const roomKeys = ['room-staff', 'room-2a', 'room-2b', 'room-lab', 'room-career', 'room-nurse', 'room-prep', 'room-hall'];
+            roomKeys.forEach(k => {
+                const el = document.getElementById(k);
+                if (el) el.innerHTML = '';
+            });
+
+            // Filter teachers on selected floor with location active
+            const floorTeachers = teachersData.filter(t => t.floor === currentFloor && t.locationActive);
+
+            floorTeachers.forEach(t => {
+                const roomEl = document.getElementById(t.roomKey);
+                if (roomEl) {
+                    const tag = document.createElement('button');
+                    tag.onclick = () => openModal(t.id);
+                    tag.className = "bg-white/90 border border-pastel-pinkDark text-gray-800 text-[11px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5 shadow-sm hover:scale-105 transition transform";
+                    tag.innerHTML = `
+                        <img src="${t.avatar}" class="w-4 h-4 rounded-full">
+                        <span>${t.name.split(' ')[0]}先生</span>
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
+                    `;
+                    roomEl.appendChild(tag);
+                }
+            });
+        }
+
+        // Render Quick Cards
+        function renderQuickCards() {
+            const container = document.getElementById('ai-quick-cards');
+            const activeList = teachersData.filter(t => t.locationActive).slice(0, 2);
+
+            container.innerHTML = activeList.map(t => `
+                <div onclick="openModal(${t.id})" class="bg-white p-3.5 rounded-2xl border border-pastel-pink/30 hover:border-pastel-pinkDark transition cursor-pointer flex items-center justify-between soft-shadow">
+                    <div class="flex items-center gap-3">
+                        <img src="${t.avatar}" class="w-11 h-11 rounded-2xl bg-pastel-yellow/60 p-1 border border-amber-100">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <h4 class="font-extrabold text-sm text-gray-800">${t.name} 先生</h4>
+                                <span class="text-[10px] bg-pastel-pink/30 text-pastel-pinkDark px-1.5 py-0.5 rounded font-bold">${t.subject}</span>
+                            </div>
+                            <p class="text-xs text-gray-500 font-semibold mt-0.5">
+                                <i class="fa-solid fa-location-dot text-pastel-pinkDark"></i> ${t.room} (${t.floor}F)
+                            </p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-100 inline-flex items-center gap-1">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Wi-Fi接続中
+                        </span>
+                        <p class="text-[10px] text-gray-400 mt-1">${t.updatedAt}</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Render Teacher Search List
+        function renderTeachers() {
+            const query = document.getElementById('teacher-search')?.value.toLowerCase() || '';
+            const container = document.getElementById('teacher-list');
+            
+            const filtered = teachersData.filter(t => 
+                t.name.toLowerCase().includes(query) || t.subject.toLowerCase().includes(query)
+            );
+
+            container.innerHTML = filtered.map(t => `
+                <div class="bg-white p-4 rounded-2xl border border-gray-100 soft-shadow hover:scale-[1.01] transition">
+                    <div class="flex items-start justify-between">
+                        <div class="flex items-center gap-3">
+                            <img src="${t.avatar}" class="w-12 h-12 rounded-2xl bg-pastel-blue/40 p-1 border border-sky-100">
+                            <div>
+                                <h3 class="font-extrabold text-base text-gray-800">${t.name} 先生</h3>
+                                <p class="text-xs text-gray-400 font-semibold">${t.subject}科担当</p>
+                            </div>
+                        </div>
+                        <span class="text-xs px-2.5 py-1 rounded-full text-white font-bold ${t.locationActive ? t.statusColor : 'bg-gray-400'}">
+                            ${t.locationActive ? t.status : '非公開/圏外'}
+                        </span>
+                    </div>
+
+                    <div class="mt-3 bg-pastel-bg p-2.5 rounded-xl border border-amber-100 text-xs space-y-1">
+                        <div class="flex items-center justify-between">
+                            <span class="text-gray-500 font-bold"><i class="fa-solid fa-street-view text-pastel-pinkDark"></i> 現在地:</span>
+                            <span class="font-extrabold text-gray-700">${t.locationActive ? `${t.room} (${t.floor}F)` : '非公開'}</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-gray-500 font-bold"><i class="fa-solid fa-mobile-screen text-purple-400"></i> 連動端末:</span>
+                            <span class="font-extrabold text-gray-700">${t.device}</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-gray-500 font-bold"><i class="fa-regular fa-clock text-blue-400"></i> 次の予定:</span>
+                            <span class="text-gray-600 font-bold text-pastel-pinkDark">${t.schedule}</span>
+                        </div>
+                    </div>
+
+                    <div class="mt-3 flex gap-2">
+                        <button onclick="openModal(${t.id})" class="flex-1 bg-pastel-pink/30 hover:bg-pastel-pink/50 text-pastel-pinkDark py-2 rounded-xl text-xs font-bold transition">
+                            詳細・端末接続情報
+                        </button>
+                        <button onclick="quickChat(${t.id})" class="bg-pastel-pinkDark text-white px-3 py-2 rounded-xl text-xs font-bold hover:bg-rose-400 transition flex items-center gap-1">
+                            <i class="fa-solid fa-paper-plane"></i> 連絡
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Open Detail Modal
+        function openModal(id) {
+            const t = teachersData.find(x => x.id === id);
+            if (!t) return;
+
+            const modal = document.getElementById('modal-detail');
+            const content = document.getElementById('modal-content');
+
+            content.innerHTML = `
+                <div class="w-16 h-16 mx-auto rounded-3xl bg-pastel-yellow/80 p-2 border-2 border-amber-200">
+                    <img src="${t.avatar}" class="w-full h-full">
+                </div>
+                <div>
+                    <h3 class="text-lg font-black text-gray-800">${t.name} 先生</h3>
+                    <p class="text-xs text-pastel-pinkDark font-bold">${t.subject}科教員</p>
+                </div>
+
+                <div class="bg-pastel-bg p-3 rounded-2xl text-left text-xs space-y-2 border border-pink-100">
+                    <div class="flex justify-between border-b pb-1">
+                        <span class="text-gray-500">現在地</span>
+                        <span class="font-bold text-gray-800">${t.locationActive ? `${t.room} (${t.floor}F)` : '非公開'}</span>
+                    </div>
+                    <div class="flex justify-between border-b pb-1">
+                        <span class="text-gray-500">接続端末</span>
+                        <span class="font-bold text-pastel-pinkDark">${t.device}</span>
+                    </div>
+                    <div class="flex justify-between border-b pb-1">
+                        <span class="text-gray-500">次の移動先</span>
+                        <span class="font-bold text-purple-600">${t.schedule}</span>
+                    </div>
+                    <div class="flex justify-between border-b pb-1">
+                        <span class="text-gray-500">更新時刻</span>
+                        <span class="font-bold text-gray-700">${t.updatedAt}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">一言メッセージ</span>
+                        <span class="font-bold text-emerald-600">${t.note}</span>
+                    </div>
+                </div>
+
+                <p class="text-[11px] text-gray-400">※先生のプライバシー保護のため、学校Wi-Fiの接続範囲外（帰宅後など）では位置は一切表示されません。</p>
+
+                <button onclick="quickChat(${t.id})" class="w-full bg-pastel-pinkDark text-white py-2.5 rounded-xl font-bold text-sm shadow-md hover:bg-rose-400 transition">
+                    先生に連絡・提出報告を送る
+                </button>
+            `;
+
+            modal.classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('modal-detail').classList.add('hidden');
+        }
+
+        // Switch to Chat for Specific Teacher
+        function quickChat(id) {
+            closeModal();
+            switchTab('chat');
+            const select = document.getElementById('chat-teacher-select');
+            select.value = id;
+            changeChatTarget();
+        }
+
+        // Change Active Chat Target
+        function changeChatTarget() {
+            const id = parseInt(document.getElementById('chat-teacher-select').value);
+            const t = teachersData.find(x => x.id === id);
+            if (!t) return;
+
+            document.getElementById('chat-avatar').src = t.avatar;
+            document.getElementById('chat-teacher-status').innerText = t.locationActive ? `● ${t.room}にいます（端末Wi-Fi接続中）` : `● 端末位置非公開 / 校外`;
+
+            const messages = document.getElementById('chat-messages');
+            messages.innerHTML = `
+                <div class="flex gap-2 items-start">
+                    <img src="${t.avatar}" class="w-7 h-7 rounded-full bg-pastel-yellow">
+                    <div class="bg-gray-100 p-3 rounded-2xl rounded-tl-none max-w-[80%] text-gray-700">
+                        こんにちは！${t.name}です。${t.subject}の件かな？メッセージを残しておいてくれたら後で確認するね。
+                        <span class="block text-[10px] text-gray-400 mt-1">11:32</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Send Chat Message
+        function sendMessage(e) {
+            e.preventDefault();
+            const input = document.getElementById('chat-input');
+            const text = input.value.trim();
+            if (!text) return;
+
+            const messages = document.getElementById('chat-messages');
+            
+            // User message
+            const userMsg = document.createElement('div');
+            userMsg.className = "flex gap-2 items-start justify-end";
+            userMsg.innerHTML = `
+                <div class="bg-pastel-pinkDark text-white p-3 rounded-2xl rounded-tr-none max-w-[80%] text-sm shadow-sm">
+                    ${text}
+                    <span class="block text-[10px] text-pink-100 mt-1 text-right">たった今</span>
+                </div>
+            `;
+            messages.appendChild(userMsg);
+
+            input.value = '';
+            messages.scrollTop = messages.scrollHeight;
+
+            // Auto simulated reply
+            setTimeout(() => {
+                const reply = document.createElement('div');
+                reply.className = "flex gap-2 items-start";
+                const id = parseInt(document.getElementById('chat-teacher-select').value);
+                const t = teachersData.find(x => x.id === id);
+
+                reply.innerHTML = `
+                    <img src="${t.avatar}" class="w-7 h-7 rounded-full bg-pastel-yellow">
+                    <div class="bg-gray-100 p-3 rounded-2xl rounded-tl-none max-w-[80%] text-gray-700">
+                        メッセージありがとう！いま${t.locationActive ? t.room : '移動中'}なので、また確認するね！
+                        <span class="block text-[10px] text-gray-400 mt-1">たった今</span>
+                    </div>
+                `;
+                messages.appendChild(reply);
+                messages.scrollTop = messages.scrollHeight;
+            }, 1000);
+        }
+    </script>
+
+    <!-- Firebase SDKの読み込み（リアルタイム共有メモ対応） -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global variables provided by environment
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'where-teacher-app';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' 
+            ? JSON.parse(__firebase_config)
+            : {
+                apiKey: "AIzaSy_demo_key",
+                authDomain: "demo.firebaseapp.com",
+                projectId: "demo-project",
+                storageBucket: "demo.appspot.com",
+                messagingSenderId: "000000000",
+                appId: "1:000000000:web:000000000"
+            };
+
+        // Firebaseの初期化
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // 匿名認証 / カスタムトークン認証
+        async function initAuth() {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (err) {
+                console.warn("Firebase認証フォールバック:", err);
+            }
+        }
+
+        // 認証後にFirestore処理を開始
+        initAuth().then(() => {
+            // ルールに従ったコレクションパス
+            const memosCollection = collection(db, 'artifacts', appId, 'public', 'data', 'memos');
+
+            const memoInput = document.getElementById("memoInput");
+            const addBtn = document.getElementById("addBtn");
+            const memoList = document.getElementById("memoList");
+
+            // 1. データを追加する処理
+            addBtn.addEventListener("click", async () => {
+                const text = memoInput.value.trim();
+                if (!text) return;
+                
+                try {
+                    await addDoc(memosCollection, {
+                        text: text,
+                        createdAt: Date.now()
+                    });
+                    memoInput.value = "";
+                } catch (e) {
+                    console.error("メモ追加エラー:", e);
+                }
+            });
+
+            // 2. データをリアルタイムに受信して画面を描画する処理
+            onSnapshot(memosCollection, (snapshot) => {
+                memoList.innerHTML = ""; // 一旦クリア
+                
+                // メモ一覧の取得・並び替え（メモリ内でソート）
+                const docsData = [];
+                snapshot.forEach((docData) => {
+                    docsData.push({ id: docData.id, ...docData.data() });
+                });
+                docsData.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+                if (docsData.length === 0) {
+                    memoList.innerHTML = `<li class="text-xs text-gray-400 text-center py-2">共有メモはまだありません</li>`;
+                    return;
+                }
+
+                docsData.forEach((item) => {
+                    const li = document.createElement("li");
+                    li.className = "flex justify-between items-center bg-pastel-bg p-2.5 rounded-xl border border-rose-100 text-xs text-gray-700 shadow-sm";
+                    li.innerHTML = `
+                        <span class="font-medium"><i class="fa-solid fa-pin text-pastel-pinkDark mr-1.5"></i>${escapeHtml(item.text)}</span>
+                        <button class="delete-btn bg-rose-100 hover:bg-rose-200 text-rose-600 px-2.5 py-1 rounded-lg font-bold text-[10px] transition" data-id="${item.id}">
+                            <i class="fa-solid fa-trash-can"></i> 削除
+                        </button>
+                    `;
+                    memoList.appendChild(li);
+                });
+
+                // 削除ボタンのイベントを設定
+                document.querySelectorAll(".delete-btn").forEach(btn => {
+                    btn.addEventListener("click", async (e) => {
+                        const targetBtn = e.currentTarget;
+                        const id = targetBtn.getAttribute("data-id");
+                        try {
+                            await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'memos', id));
+                        } catch (err) {
+                            console.error("削除エラー:", err);
+                        }
+                    });
+                });
+            }, (error) => {
+                console.error("Firestore Error:", error);
+            });
+        });
+
+        function escapeHtml(str) {
+            return String(str).replace(/[&<>"']/g, (m) => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+            }[m]));
+        }
+    </script>
+</body>
+</html>
